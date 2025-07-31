@@ -4,6 +4,8 @@ import random
 import time
 from datetime import datetime
 import numpy as np
+import plotly.graph_objects as go
+
 
 # Page configuration
 st.set_page_config(
