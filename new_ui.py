@@ -7,228 +7,705 @@ from plotly.subplots import make_subplots
 import random
 import time
 from datetime import datetime, timedelta
+import json
 
-# Page configuration
+# ============================================================================
+# PAGE CONFIGURATION
+# ============================================================================
+
 st.set_page_config(
-    page_title="⚡ Battery Management System",
-    page_icon="🔋",
+    page_title="Battery Management System | Professional Dashboard",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern styling
-st.markdown("""
+# ============================================================================
+# DARK THEME STYLING
+# ============================================================================
+
+dark_theme_css = """
 <style>
-    .main > div {
-        padding-top: 2rem;
+    /* Import modern fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Root variables for consistent theming */
+    :root {
+        --bg-primary: #121212;
+        --bg-secondary: #1e1e1e;
+        --bg-tertiary: #2d2d2d;
+        --text-primary: #ffffff;
+        --text-secondary: #b3b3b3;
+        --accent-cyan: #00bcd4;
+        --accent-teal: #009688;
+        --accent-lime: #cddc39;
+        --accent-orange: #ff9800;
+        --border-color: #404040;
+        --hover-bg: #333333;
     }
     
-    .stMetric {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Main app styling */
+    .stApp {
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* Fixed header */
+    .main-header {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+        padding: 1.5rem 2rem;
+        margin: -1rem -1rem 2rem -1rem;
+        border-bottom: 2px solid var(--accent-cyan);
+        box-shadow: 0 4px 20px rgba(0, 188, 212, 0.1);
+    }
+    
+    .main-header h1 {
+        margin: 0;
+        font-size: 2.2rem;
+        font-weight: 600;
+        background: linear-gradient(45deg, var(--accent-cyan), var(--accent-teal));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .main-header p {
+        margin: 0.5rem 0 0 0;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        font-weight: 300;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: var(--bg-secondary);
+        border-right: 1px solid var(--border-color);
+    }
+    
+    .css-1d391kg .css-17eq0hr {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+    }
+    
+    /* Navigation items */
+    .nav-item {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
         padding: 1rem;
-        border-radius: 10px;
-        color: white;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    .stMetric > div > div > div > div {
-        color: white !important;
-    }
-    
-    .battery-card {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
         margin: 0.5rem 0;
-        color: white;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+        cursor: pointer;
     }
     
-    .task-card {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    .nav-item:hover {
+        background: var(--hover-bg);
+        border-color: var(--accent-cyan);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 188, 212, 0.2);
+    }
+    
+    .nav-item.active {
+        background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+        border-color: transparent;
+        color: var(--bg-primary);
+        font-weight: 600;
+    }
+    
+    /* Metric cards */
+    .metric-card {
+        background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
         padding: 1.5rem;
-        border-radius: 15px;
         margin: 0.5rem 0;
-        color: white;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
     
-    .header-style {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent-cyan), var(--accent-teal), var(--accent-lime));
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 188, 212, 0.15);
+        border-color: var(--accent-cyan);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--accent-cyan);
+        margin: 0;
+        line-height: 1;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        margin-top: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .metric-delta {
+        font-size: 0.8rem;
+        margin-top: 0.25rem;
+        font-weight: 500;
+    }
+    
+    /* Data cards */
+    .data-card {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+    }
+    
+    .data-card:hover {
+        border-color: var(--accent-teal);
+        box-shadow: 0 4px 20px rgba(0, 150, 136, 0.1);
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
         border-radius: 20px;
-        text-align: center;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    .status-online { background: var(--accent-teal); color: var(--bg-primary); }
+    .status-charging { background: var(--accent-lime); color: var(--bg-primary); }
+    .status-idle { background: var(--text-secondary); color: var(--bg-primary); }
+    .status-warning { background: var(--accent-orange); color: var(--bg-primary); }
+    
+    /* Buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
+        color: var(--bg-primary);
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 188, 212, 0.3);
+        background: linear-gradient(135deg, var(--accent-teal), var(--accent-cyan));
+    }
+    
+    /* Form inputs */
+    .stSelectbox > div > div {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+    }
+    
+    .stNumberInput > div > div > input {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+    }
+    
+    /* Dataframe styling */
+    .stDataFrame {
+        background-color: var(--bg-secondary);
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+    }
+    
+    /* Plotly chart styling */
+    .js-plotly-plot {
+        background-color: transparent !important;
+        border-radius: 12px;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+    }
+    
+    .streamlit-expanderContent {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+    }
+    
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: var(--accent-cyan);
+        border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-teal);
+    }
+    
+    /* Mobile responsiveness */
+    @media (max-width: 768px) {
+        .main-header {
+            padding: 1rem;
+            margin: -1rem -1rem 1rem -1rem;
+        }
+        
+        .main-header h1 {
+            font-size: 1.8rem;
+        }
+        
+        .metric-card {
+            padding: 1rem;
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+        }
     }
 </style>
-""", unsafe_allow_html=True)
+"""
 
-# Initialize session state
-if 'cells_data' not in st.session_state:
-    st.session_state.cells_data = {}
-if 'tasks_data' not in st.session_state:
-    st.session_state.tasks_data = {}
-if 'monitoring' not in st.session_state:
-    st.session_state.monitoring = False
-if 'history' not in st.session_state:
-    st.session_state.history = []
+st.markdown(dark_theme_css, unsafe_allow_html=True)
 
-# Header
-st.markdown("""
-<div class="header-style">
-    <h1>⚡ Advanced Battery Management System</h1>
-    <p>Monitor, Control & Optimize Your Battery Cells</p>
-</div>
-""", unsafe_allow_html=True)
+# ============================================================================
+# SESSION STATE INITIALIZATION
+# ============================================================================
 
-# Sidebar
-with st.sidebar:
-    st.markdown("### 🎛️ Control Panel")
+def init_session_state():
+    """Initialize session state variables"""
+    defaults = {
+        'cells_data': {},
+        'tasks_data': {},
+        'monitoring_active': False,
+        'current_page': 'Dashboard',
+        'history_data': [],
+        'system_alerts': []
+    }
     
-    # Mode selection
-    mode = st.selectbox(
-        "Select Operation Mode",
-        ["🔋 Cell Management", "📋 Task Configuration", "📊 Real-time Monitoring", "📈 Analytics"]
-    )
-    
-    st.markdown("---")
-    
-    # Quick stats if cells exist
-    if st.session_state.cells_data:
-        st.markdown("### ⚡ Quick Stats")
-        total_cells = len(st.session_state.cells_data)
-        avg_temp = np.mean([cell['temp'] for cell in st.session_state.cells_data.values()])
-        avg_voltage = np.mean([cell['voltage'] for cell in st.session_state.cells_data.values()])
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+init_session_state()
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+def generate_sample_data():
+    """Generate sample data for demonstration"""
+    if not st.session_state.cells_data:
+        sample_cells = [
+            {'type': 'lfp', 'id': 1},
+            {'type': 'lfp', 'id': 2},
+            {'type': 'li-ion', 'id': 3},
+            {'type': 'lfp', 'id': 4}
+        ]
         
-        st.metric("Total Cells", total_cells)
-        st.metric("Avg Temperature", f"{avg_temp:.1f}°C")
-        st.metric("Avg Voltage", f"{avg_voltage:.1f}V")
+        for cell in sample_cells:
+            cell_key = f"cell_{cell['id']}_{cell['type']}"
+            
+            specs = {
+                'lfp': {'voltage': 3.2, 'min_v': 2.8, 'max_v': 3.6},
+                'li-ion': {'voltage': 3.7, 'min_v': 3.2, 'max_v': 4.2}
+            }
+            
+            spec = specs[cell['type']]
+            
+            st.session_state.cells_data[cell_key] = {
+                'type': cell['type'],
+                'voltage': round(spec['voltage'] + random.uniform(-0.2, 0.2), 2),
+                'current': round(random.uniform(-2, 3), 2),
+                'temp': round(random.uniform(25, 40), 1),
+                'capacity': round(random.uniform(80, 120), 1),
+                'min_voltage': spec['min_v'],
+                'max_voltage': spec['max_v'],
+                'health': round(random.uniform(85, 100), 1),
+                'cycles': random.randint(50, 800),
+                'status': random.choice(['Charging', 'Discharging', 'Idle']),
+                'last_updated': datetime.now()
+            }
 
-# Main content based on mode
-if mode == "🔋 Cell Management":
-    st.markdown("## 🔋 Battery Cell Configuration")
+def create_plotly_theme():
+    """Create consistent Plotly theme"""
+    return {
+        'layout': {
+            'paper_bgcolor': 'rgba(0,0,0,0)',
+            'plot_bgcolor': 'rgba(0,0,0,0)',
+            'font': {'color': '#ffffff', 'family': 'Inter'},
+            'colorway': ['#00bcd4', '#009688', '#cddc39', '#ff9800', '#e91e63'],
+            'xaxis': {
+                'gridcolor': '#404040',
+                'linecolor': '#404040',
+                'tickcolor': '#404040'
+            },
+            'yaxis': {
+                'gridcolor': '#404040',
+                'linecolor': '#404040',
+                'tickcolor': '#404040'
+            }
+        }
+    }
+
+# ============================================================================
+# HEADER COMPONENT
+# ============================================================================
+
+def render_header():
+    """Render the fixed header"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>⚡ Battery Management System</h1>
+        <p>Professional Dashboard | Real-time Monitoring & Control</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================================================================
+# SIDEBAR NAVIGATION
+# ============================================================================
+
+def render_sidebar():
+    """Render the sidebar navigation"""
+    with st.sidebar:
+        st.markdown("### 🎛️ Navigation")
+        
+        pages = {
+            '📊 Dashboard': 'dashboard',
+            '🔋 Cell Management': 'cells',
+            '📋 Task Control': 'tasks',
+            '📈 Analytics': 'analytics',
+            '⚙️ Settings': 'settings'
+        }
+        
+        for page_name, page_key in pages.items():
+            if st.button(page_name, key=f"nav_{page_key}", use_container_width=True):
+                st.session_state.current_page = page_name
+        
+        st.markdown("---")
+        
+        # Quick stats
+        if st.session_state.cells_data:
+            st.markdown("### ⚡ System Status")
+            
+            total_cells = len(st.session_state.cells_data)
+            active_cells = sum(1 for cell in st.session_state.cells_data.values() 
+                             if cell['status'] != 'Idle')
+            avg_health = np.mean([cell['health'] for cell in st.session_state.cells_data.values()])
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Cells", total_cells)
+                st.metric("Health", f"{avg_health:.0f}%")
+            with col2:
+                st.metric("Active", active_cells)
+                st.metric("Status", "🟢 Online")
+        
+        # Sample data button
+        st.markdown("---")
+        if st.button("🎲 Load Sample Data", use_container_width=True):
+            generate_sample_data()
+            st.rerun()
+
+# ============================================================================
+# DASHBOARD PAGE
+# ============================================================================
+
+def render_dashboard():
+    """Render the main dashboard"""
+    st.markdown("## 📊 System Overview")
+    
+    if not st.session_state.cells_data:
+        st.info("🎯 Load sample data from the sidebar to get started, or navigate to Cell Management to add cells.")
+        return
+    
+    # Key metrics row
+    col1, col2, col3, col4 = st.columns(4)
+    
+    total_power = sum(cell['voltage'] * abs(cell['current']) for cell in st.session_state.cells_data.values())
+    total_capacity = sum(cell['capacity'] for cell in st.session_state.cells_data.values())
+    avg_temp = np.mean([cell['temp'] for cell in st.session_state.cells_data.values()])
+    critical_alerts = sum(1 for cell in st.session_state.cells_data.values() 
+                         if cell['temp'] > 35 or cell['health'] < 80)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_power:.1f}W</div>
+            <div class="metric-label">Total Power</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_capacity:.0f}Ah</div>
+            <div class="metric-label">Total Capacity</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{avg_temp:.1f}°C</div>
+            <div class="metric-label">Avg Temperature</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        alert_color = "#ff9800" if critical_alerts > 0 else "#009688"
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value" style="color: {alert_color}">{critical_alerts}</div>
+            <div class="metric-label">Alerts</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Charts row
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Voltage chart
+        cell_names = list(st.session_state.cells_data.keys())
+        voltages = [st.session_state.cells_data[cell]['voltage'] for cell in cell_names]
+        
+        fig_voltage = go.Figure()
+        fig_voltage.add_trace(go.Bar(
+            x=[name.split('_')[1] for name in cell_names],
+            y=voltages,
+            marker_color='#00bcd4',
+            name='Voltage',
+            hovertemplate='<b>Cell %{x}</b><br>Voltage: %{y:.2f}V<extra></extra>'
+        ))
+        
+        fig_voltage.update_layout(
+            title="🔋 Cell Voltages",
+            xaxis_title="Cell ID",
+            yaxis_title="Voltage (V)",
+            height=400,
+            **create_plotly_theme()['layout']
+        )
+        
+        st.plotly_chart(fig_voltage, use_container_width=True)
+    
+    with col2:
+        # Temperature vs Health scatter
+        temps = [cell['temp'] for cell in st.session_state.cells_data.values()]
+        healths = [cell['health'] for cell in st.session_state.cells_data.values()]
+        cell_types = [cell['type'] for cell in st.session_state.cells_data.values()]
+        
+        fig_scatter = go.Figure()
+        
+        for cell_type in set(cell_types):
+            type_temps = [temps[i] for i, t in enumerate(cell_types) if t == cell_type]
+            type_healths = [healths[i] for i, t in enumerate(cell_types) if t == cell_type]
+            
+            fig_scatter.add_trace(go.Scatter(
+                x=type_temps,
+                y=type_healths,
+                mode='markers',
+                name=cell_type.upper(),
+                marker=dict(size=12, opacity=0.8),
+                hovertemplate=f'<b>{cell_type.upper()}</b><br>Temp: %{{x:.1f}}°C<br>Health: %{{y:.1f}}%<extra></extra>'
+            ))
+        
+        fig_scatter.update_layout(
+            title="🌡️ Temperature vs Health",
+            xaxis_title="Temperature (°C)",
+            yaxis_title="Health (%)",
+            height=400,
+            **create_plotly_theme()['layout']
+        )
+        
+        st.plotly_chart(fig_scatter, use_container_width=True)
+    
+    # Data table
+    st.markdown("### 📊 Cell Status Table")
+    
+    # Prepare data for table
+    table_data = []
+    for cell_key, cell_data in st.session_state.cells_data.items():
+        table_data.append({
+            'Cell ID': cell_key,
+            'Type': cell_data['type'].upper(),
+            'Voltage (V)': f"{cell_data['voltage']:.2f}",
+            'Current (A)': f"{cell_data['current']:.2f}",
+            'Temperature (°C)': f"{cell_data['temp']:.1f}",
+            'Health (%)': f"{cell_data['health']:.1f}",
+            'Status': cell_data['status'],
+            'Cycles': cell_data['cycles']
+        })
+    
+    df = pd.DataFrame(table_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+# ============================================================================
+# CELL MANAGEMENT PAGE
+# ============================================================================
+
+def render_cell_management():
+    """Render cell management page"""
+    st.markdown("## 🔋 Cell Management")
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.markdown("### Add New Cells")
+        st.markdown("### ➕ Add New Cells")
         
-        with st.form("cell_form"):
-            num_cells = st.number_input("Number of cells to add", min_value=1, max_value=20, value=1)
-            cell_types = []
+        with st.form("add_cells_form"):
+            num_cells = st.number_input("Number of cells", min_value=1, max_value=10, value=1)
             
+            cell_configs = []
             for i in range(num_cells):
+                st.markdown(f"**Cell {i+1} Configuration**")
                 cell_type = st.selectbox(
-                    f"Cell {i+1} type", 
+                    f"Cell {i+1} type",
                     ["lfp", "li-ion", "nmc", "lto"],
                     key=f"cell_type_{i}"
                 )
-                cell_types.append(cell_type)
+                cell_configs.append(cell_type)
             
-            submitted = st.form_submit_button("🔋 Add Cells", use_container_width=True)
-            
-            if submitted:
-                for i, cell_type in enumerate(cell_types):
-                    cell_id = len(st.session_state.cells_data) + 1
+            if st.form_submit_button("🔋 Add Cells", use_container_width=True):
+                for i, cell_type in enumerate(cell_configs):
+                    cell_id = len(st.session_state.cells_data) + i + 1
                     cell_key = f"cell_{cell_id}_{cell_type}"
                     
-                    # Cell specifications based on type
                     specs = {
-                        "lfp": {"voltage": 3.2, "min_v": 2.8, "max_v": 3.6, "capacity": 100},
-                        "li-ion": {"voltage": 3.7, "min_v": 3.2, "max_v": 4.2, "capacity": 120},
-                        "nmc": {"voltage": 3.6, "min_v": 3.0, "max_v": 4.0, "capacity": 110},
-                        "lto": {"voltage": 2.4, "min_v": 1.5, "max_v": 2.8, "capacity": 80}
+                        'lfp': {'voltage': 3.2, 'min_v': 2.8, 'max_v': 3.6},
+                        'li-ion': {'voltage': 3.7, 'min_v': 3.2, 'max_v': 4.2},
+                        'nmc': {'voltage': 3.6, 'min_v': 3.0, 'max_v': 4.0},
+                        'lto': {'voltage': 2.4, 'min_v': 1.5, 'max_v': 2.8}
                     }
                     
                     spec = specs[cell_type]
                     
                     st.session_state.cells_data[cell_key] = {
-                        "type": cell_type,
-                        "voltage": spec["voltage"],
-                        "current": round(random.uniform(0, 5), 2),
-                        "temp": round(random.uniform(25, 40), 1),
-                        "capacity": spec["capacity"],
-                        "min_voltage": spec["min_v"],
-                        "max_voltage": spec["max_v"],
-                        "health": round(random.uniform(85, 100), 1),
-                        "cycles": random.randint(0, 1000),
-                        "status": random.choice(["Charging", "Discharging", "Idle"])
+                        'type': cell_type,
+                        'voltage': spec['voltage'],
+                        'current': round(random.uniform(-1, 2), 2),
+                        'temp': round(random.uniform(25, 40), 1),
+                        'capacity': round(random.uniform(80, 120), 1),
+                        'min_voltage': spec['min_v'],
+                        'max_voltage': spec['max_v'],
+                        'health': round(random.uniform(85, 100), 1),
+                        'cycles': random.randint(0, 500),
+                        'status': random.choice(['Charging', 'Discharging', 'Idle']),
+                        'last_updated': datetime.now()
                     }
                 
-                st.success(f"✅ Added {num_cells} cell(s) successfully!")
+                st.success(f"✅ Successfully added {len(cell_configs)} cell(s)")
                 st.rerun()
     
     with col2:
         st.markdown("### 🔋 Cell Overview")
         
         if st.session_state.cells_data:
-            # Create metrics row
-            cols = st.columns(4)
-            total_cells = len(st.session_state.cells_data)
-            total_capacity = sum([cell['capacity'] for cell in st.session_state.cells_data.values()])
-            avg_health = np.mean([cell['health'] for cell in st.session_state.cells_data.values()])
-            critical_cells = sum([1 for cell in st.session_state.cells_data.values() if cell['temp'] > 35])
-            
-            with cols[0]:
-                st.metric("Total Cells", total_cells, "")
-            with cols[1]:
-                st.metric("Total Capacity", f"{total_capacity}Ah", "")
-            with cols[2]:
-                st.metric("Avg Health", f"{avg_health:.1f}%", "")
-            with cols[3]:
-                st.metric("Critical Temp", critical_cells, "⚠️" if critical_cells > 0 else "✅")
-            
-            # Detailed cell cards
-            st.markdown("### 📱 Individual Cell Status")
-            
             for cell_key, cell_data in st.session_state.cells_data.items():
-                with st.expander(f"🔋 {cell_key.upper()}", expanded=False):
-                    col_a, col_b, col_c = st.columns(3)
-                    
-                    with col_a:
-                        st.metric("Voltage", f"{cell_data['voltage']}V")
-                        st.metric("Current", f"{cell_data['current']}A")
-                    
-                    with col_b:
-                        st.metric("Temperature", f"{cell_data['temp']}°C")
-                        st.metric("Capacity", f"{cell_data['capacity']}Ah")
-                    
-                    with col_c:
-                        st.metric("Health", f"{cell_data['health']}%")
-                        st.metric("Cycles", cell_data['cycles'])
-                    
-                    # Status indicator
-                    status_color = {"Charging": "🟢", "Discharging": "🟡", "Idle": "⚪"}
-                    st.markdown(f"**Status:** {status_color[cell_data['status']]} {cell_data['status']}")
-                    
-                    # Remove button
-                    if st.button(f"🗑️ Remove {cell_key}", key=f"remove_{cell_key}"):
-                        del st.session_state.cells_data[cell_key]
-                        st.rerun()
+                status_class = {
+                    'Charging': 'status-charging',
+                    'Discharging': 'status-warning',
+                    'Idle': 'status-idle'
+                }.get(cell_data['status'], 'status-idle')
+                
+                st.markdown(f"""
+                <div class="data-card">
+                    <div class="card-header">
+                        <h3 class="card-title">🔋 {cell_key.upper()}</h3>
+                        <span class="status-badge {status_class}">{cell_data['status']}</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                        <div>
+                            <strong>Voltage:</strong> {cell_data['voltage']:.2f}V<br>
+                            <strong>Current:</strong> {cell_data['current']:.2f}A
+                        </div>
+                        <div>
+                            <strong>Temperature:</strong> {cell_data['temp']:.1f}°C<br>
+                            <strong>Capacity:</strong> {cell_data['capacity']:.1f}Ah
+                        </div>
+                        <div>
+                            <strong>Health:</strong> {cell_data['health']:.1f}%<br>
+                            <strong>Cycles:</strong> {cell_data['cycles']}
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"🗑️ Remove {cell_key}", key=f"remove_{cell_key}"):
+                    del st.session_state.cells_data[cell_key]
+                    st.rerun()
         else:
-            st.info("No cells configured yet. Add some cells to get started!")
+            st.info("No cells configured. Add some cells to get started!")
 
-elif mode == "📋 Task Configuration":
+# ============================================================================
+# TASK CONTROL PAGE
+# ============================================================================
+
+def render_task_control():
+    """Render task control page"""
     st.markdown("## 📋 Task Management")
     
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("### Create New Task")
+        st.markdown("### ➕ Create New Task")
         
         with st.form("task_form"):
             task_type = st.selectbox(
                 "Task Type",
-                ["CC_CV (Constant Current/Constant Voltage)", "IDLE", "CC_CD (Constant Current/Constant Discharge)"]
+                ["CC_CV", "IDLE", "CC_CD"]
             )
             
-            if "CC_CV" in task_type:
+            if task_type == "CC_CV":
                 st.markdown("**CC_CV Parameters**")
                 cc_value = st.number_input("CC Value (A)", value=2.0, step=0.1)
                 cv_voltage = st.number_input("CV Voltage (V)", value=4.0, step=0.1)
@@ -236,41 +713,41 @@ elif mode == "📋 Task Configuration":
                 capacity = st.number_input("Capacity (Ah)", value=10.0, step=0.1)
                 duration = st.number_input("Duration (seconds)", value=3600, step=60)
                 
-            elif "IDLE" in task_type:
+            elif task_type == "IDLE":
                 st.markdown("**IDLE Parameters**")
                 duration = st.number_input("Duration (seconds)", value=1800, step=60)
                 
-            elif "CC_CD" in task_type:
+            elif task_type == "CC_CD":
                 st.markdown("**CC_CD Parameters**")
                 cc_value = st.number_input("CC Value (A)", value=2.0, step=0.1)
                 voltage = st.number_input("Cutoff Voltage (V)", value=2.8, step=0.1)
                 capacity = st.number_input("Capacity (Ah)", value=10.0, step=0.1)
                 duration = st.number_input("Duration (seconds)", value=3600, step=60)
             
-            submitted = st.form_submit_button("📋 Create Task", use_container_width=True)
-            
-            if submitted:
+            if st.form_submit_button("📋 Create Task", use_container_width=True):
                 task_id = len(st.session_state.tasks_data) + 1
                 task_key = f"task_{task_id}"
                 
-                task_data = {"task_type": task_type.split()[0], "duration": duration}
+                task_data = {
+                    "task_type": task_type,
+                    "duration": duration,
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "status": "Pending"
+                }
                 
-                if "CC_CV" in task_type:
+                if task_type == "CC_CV":
                     task_data.update({
                         "cc_value": cc_value,
                         "cv_voltage": cv_voltage,
                         "current": current,
                         "capacity": capacity
                     })
-                elif "CC_CD" in task_type:
+                elif task_type == "CC_CD":
                     task_data.update({
                         "cc_value": cc_value,
                         "voltage": voltage,
                         "capacity": capacity
                     })
-                
-                task_data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                task_data["status"] = "Pending"
                 
                 st.session_state.tasks_data[task_key] = task_data
                 st.success(f"✅ Task {task_key} created successfully!")
@@ -281,214 +758,14 @@ elif mode == "📋 Task Configuration":
         
         if st.session_state.tasks_data:
             for task_key, task_data in st.session_state.tasks_data.items():
-                with st.expander(f"📋 {task_key.upper()}", expanded=False):
-                    st.markdown(f"**Type:** {task_data['task_type']}")
-                    st.markdown(f"**Duration:** {task_data['duration']}s")
-                    st.markdown(f"**Status:** {task_data['status']}")
-                    st.markdown(f"**Created:** {task_data['created_at']}")
-                    
-                    col_a, col_b, col_c = st.columns(3)
-                    with col_a:
-                        if st.button(f"▶️ Start", key=f"start_{task_key}"):
-                            st.session_state.tasks_data[task_key]["status"] = "Running"
-                            st.rerun()
-                    
-                    with col_b:
-                        if st.button(f"⏸️ Pause", key=f"pause_{task_key}"):
-                            st.session_state.tasks_data[task_key]["status"] = "Paused"
-                            st.rerun()
-                    
-                    with col_c:
-                        if st.button(f"🗑️ Delete", key=f"delete_{task_key}"):
-                            del st.session_state.tasks_data[task_key]
-                            st.rerun()
-        else:
-            st.info("No tasks created yet. Create a task to get started!")
-
-elif mode == "📊 Real-time Monitoring":
-    st.markdown("## 📊 Real-time Battery Monitoring")
-    
-    if st.session_state.cells_data:
-        # Control buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("▶️ Start Monitoring", use_container_width=True):
-                st.session_state.monitoring = True
-        with col2:
-            if st.button("⏸️ Stop Monitoring", use_container_width=True):
-                st.session_state.monitoring = False
-        with col3:
-            if st.button("🔄 Refresh Data", use_container_width=True):
-                # Update cell data with random variations
-                for cell_key, cell_data in st.session_state.cells_data.items():
-                    st.session_state.cells_data[cell_key]['temp'] += random.uniform(-1, 1)
-                    st.session_state.cells_data[cell_key]['voltage'] += random.uniform(-0.1, 0.1)
-                    st.session_state.cells_data[cell_key]['current'] += random.uniform(-0.5, 0.5)
-        
-        # Create real-time charts
-        if st.session_state.cells_data:
-            # Voltage chart
-            fig_voltage = go.Figure()
-            cell_names = list(st.session_state.cells_data.keys())
-            voltages = [st.session_state.cells_data[cell]['voltage'] for cell in cell_names]
-            
-            fig_voltage.add_trace(go.Bar(
-                x=cell_names,
-                y=voltages,
-                marker_color='lightblue',
-                name='Voltage'
-            ))
-            
-            fig_voltage.update_layout(
-                title="🔋 Cell Voltages",
-                xaxis_title="Cells",
-                yaxis_title="Voltage (V)",
-                height=400
-            )
-            
-            st.plotly_chart(fig_voltage, use_container_width=True)
-            
-            # Temperature chart
-            fig_temp = go.Figure()
-            temperatures = [st.session_state.cells_data[cell]['temp'] for cell in cell_names]
-            
-            fig_temp.add_trace(go.Scatter(
-                x=cell_names,
-                y=temperatures,
-                mode='lines+markers',
-                marker_color='red',
-                name='Temperature'
-            ))
-            
-            fig_temp.update_layout(
-                title="🌡️ Cell Temperatures",
-                xaxis_title="Cells",
-                yaxis_title="Temperature (°C)",
-                height=400
-            )
-            
-            st.plotly_chart(fig_temp, use_container_width=True)
-            
-            # Health status pie chart
-            health_ranges = {"Excellent (90-100%)": 0, "Good (80-89%)": 0, "Fair (70-79%)": 0, "Poor (<70%)": 0}
-            
-            for cell_data in st.session_state.cells_data.values():
-                health = cell_data['health']
-                if health >= 90:
-                    health_ranges["Excellent (90-100%)"] += 1
-                elif health >= 80:
-                    health_ranges["Good (80-89%)"] += 1
-                elif health >= 70:
-                    health_ranges["Fair (70-79%)"] += 1
-                else:
-                    health_ranges["Poor (<70%)"] += 1
-            
-            fig_health = go.Figure(data=[go.Pie(
-                labels=list(health_ranges.keys()),
-                values=list(health_ranges.values()),
-                hole=0.4
-            )])
-            
-            fig_health.update_layout(
-                title="🏥 Battery Health Distribution",
-                height=400
-            )
-            
-            st.plotly_chart(fig_health, use_container_width=True)
-            
-        # Auto-refresh for monitoring
-        if st.session_state.monitoring:
-            time.sleep(2)
-            st.rerun()
-    else:
-        st.warning("⚠️ No cells available for monitoring. Please add cells first.")
-
-elif mode == "📈 Analytics":
-    st.markdown("## 📈 Battery Analytics & Insights")
-    
-    if st.session_state.cells_data:
-        # Performance metrics
-        st.markdown("### 🎯 Performance Metrics")
-        
-        cols = st.columns(4)
-        
-        # Calculate metrics
-        total_energy = sum([cell['voltage'] * cell['current'] for cell in st.session_state.cells_data.values()])
-        avg_efficiency = np.mean([cell['health'] for cell in st.session_state.cells_data.values()])
-        total_cycles = sum([cell['cycles'] for cell in st.session_state.cells_data.values()])
-        power_consumption = sum([abs(cell['current']) for cell in st.session_state.cells_data.values()])
-        
-        with cols[0]:
-            st.metric("Total Energy", f"{total_energy:.2f}W", "")
-        with cols[1]:
-            st.metric("Avg Efficiency", f"{avg_efficiency:.1f}%", "")
-        with cols[2]:
-            st.metric("Total Cycles", f"{total_cycles}", "")
-        with cols[3]:
-            st.metric("Power Draw", f"{power_consumption:.2f}A", "")
-        
-        # Detailed analytics
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Cell type distribution
-            cell_types = [cell['type'] for cell in st.session_state.cells_data.values()]
-            type_counts = {cell_type: cell_types.count(cell_type) for cell_type in set(cell_types)}
-            
-            fig_types = px.bar(
-                x=list(type_counts.keys()),
-                y=list(type_counts.values()),
-                title="🔋 Cell Type Distribution",
-                labels={'x': 'Cell Type', 'y': 'Count'}
-            )
-            st.plotly_chart(fig_types, use_container_width=True)
-        
-        with col2:
-            # Voltage vs Temperature correlation
-            voltages = [cell['voltage'] for cell in st.session_state.cells_data.values()]
-            temperatures = [cell['temp'] for cell in st.session_state.cells_data.values()]
-            
-            fig_corr = px.scatter(
-                x=temperatures,
-                y=voltages,
-                title="🌡️ Voltage vs Temperature",
-                labels={'x': 'Temperature (°C)', 'y': 'Voltage (V)'}
-            )
-            st.plotly_chart(fig_corr, use_container_width=True)
-        
-        # Recommendations
-        st.markdown("### 💡 AI Recommendations")
-        
-        recommendations = []
-        
-        # Check for high temperature cells
-        hot_cells = [cell for cell in st.session_state.cells_data.values() if cell['temp'] > 35]
-        if hot_cells:
-            recommendations.append("🌡️ Consider cooling system - some cells are running hot")
-        
-        # Check for low health cells
-        unhealthy_cells = [cell for cell in st.session_state.cells_data.values() if cell['health'] < 80]
-        if unhealthy_cells:
-            recommendations.append("🏥 Replace cells with health below 80%")
-        
-        # Check for high cycle count
-        aged_cells = [cell for cell in st.session_state.cells_data.values() if cell['cycles'] > 800]
-        if aged_cells:
-            recommendations.append("🔄 Monitor high-cycle cells closely")
-        
-        if not recommendations:
-            recommendations.append("✅ All systems operating normally")
-        
-        for rec in recommendations:
-            st.info(rec)
-        
-    else:
-        st.warning("⚠️ No data available for analytics. Please add cells first.")
-
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; padding: 2rem;'>
-    ⚡ Advanced Battery Management System v2.0 | Built with Streamlit & ❤️
-</div>
-""", unsafe_allow_html=True)
+                status_class = {
+                    'Pending': 'status-idle',
+                    'Running': 'status-charging',
+                    'Paused': 'status-warning',
+                    'Completed': 'status-online'
+                }.get(task_data['status'], 'status-idle')
+                
+                st.markdown(f"""
+                <div class="data-card">
+                    <div class="card-header">
+                        <h3 class="card-title">
