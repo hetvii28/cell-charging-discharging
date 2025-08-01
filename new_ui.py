@@ -660,7 +660,250 @@ def render_cell_management():
                 st.markdown(f"""
                 <div class="data-card">
                     <div class="card-header">
-                        <h3 class="card-title">🔋 {cell_key.upper()}</h3>
+                        <h3 class="card-title">📋 {task_key.upper()}</h3>
+                        <span class="status-badge {status_class}">{task_data['status']}</span>
+                    </div>
+                    <div>
+                        <strong>Type:</strong> {task_data['task_type']}<br>
+                        <strong>Duration:</strong> {task_data['duration']}s<br>
+                        <strong>Created:</strong> {task_data['created_at']}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col_a, col_b, col_c = st.columns(3)
+                with col_a:
+                    if st.button("▶️ Start", key=f"start_{task_key}"):
+                        st.session_state.tasks_data[task_key]["status"] = "Running"
+                        st.rerun()
+                
+                with col_b:
+                    if st.button("⏸️ Pause", key=f"pause_{task_key}"):
+                        st.session_state.tasks_data[task_key]["status"] = "Paused"
+                        st.rerun()
+                
+                with col_c:
+                    if st.button("🗑️ Delete", key=f"delete_{task_key}"):
+                        del st.session_state.tasks_data[task_key]
+                        st.rerun()
+        else:
+            st.info("No tasks created yet. Create a task to get started!")
+
+# ============================================================================
+# ANALYTICS PAGE
+# ============================================================================
+
+def render_analytics():
+    """Render analytics page"""
+    st.markdown("## 📈 System Analytics")
+    
+    if not st.session_state.cells_data:
+        st.info("No data available for analysis. Add cells first!")
+        return
+    
+    # Performance metrics
+    col1, col2, col3 = st.columns(3)
+    
+    total_energy = sum(cell['voltage'] * abs(cell['current']) for cell in st.session_state.cells_data.values())
+    avg_efficiency = np.mean([cell['health'] for cell in st.session_state.cells_data.values()])
+    total_cycles = sum(cell['cycles'] for cell in st.session_state.cells_data.values())
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_energy:.1f}W</div>
+            <div class="metric-label">Total Energy</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{avg_efficiency:.1f}%</div>
+            <div class="metric-label">Avg Efficiency</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-value">{total_cycles}</div>
+            <div class="metric-label">Total Cycles</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Cell type distribution
+        cell_types = [cell['type'] for cell in st.session_state.cells_data.values()]
+        type_counts = pd.Series(cell_types).value_counts()
+        
+        fig_pie = go.Figure(data=[go.Pie(
+            labels=type_counts.index,
+            values=type_counts.values,
+            hole=0.4,
+            marker_colors=['#00bcd4', '#009688', '#cddc39', '#ff9800']
+        )])
+        
+        fig_pie.update_layout(
+            title="🔋 Cell Type Distribution",
+            height=400,
+            **create_plotly_theme()['layout']
+        )
+        
+        st.plotly_chart(fig_pie, use_container_width=True)
+    
+    with col2:
+        # Health vs Cycles
+        healths = [cell['health'] for cell in st.session_state.cells_data.values()]
+        cycles = [cell['cycles'] for cell in st.session_state.cells_data.values()]
+        
+        fig_health = go.Figure()
+        fig_health.add_trace(go.Scatter(
+            x=cycles,
+            y=healths,
+            mode='markers+lines',
+            marker=dict(size=10, color='#00bcd4'),
+            line=dict(color='#009688'),
+            name='Health vs Cycles'
+        ))
+        
+        fig_health.update_layout(
+            title="🏥 Battery Health vs Cycle Count",
+            xaxis_title="Cycle Count",
+            yaxis_title="Health (%)",
+            height=400,
+            **create_plotly_theme()['layout']
+        )
+        
+        st.plotly_chart(fig_health, use_container_width=True)
+    
+    # Recommendations
+    st.markdown("### 💡 System Recommendations")
+    
+    recommendations = []
+    
+    # Temperature check
+    hot_cells = [cell for cell in st.session_state.cells_data.values() if cell['temp'] > 35]
+    if hot_cells:
+        recommendations.append("🌡️ High temperature detected - Consider implementing thermal management")
+    
+    # Health check
+    unhealthy_cells = [cell for cell in st.session_state.cells_data.values() if cell['health'] < 80]
+    if unhealthy_cells:
+        recommendations.append(f"🏥 {len(unhealthy_cells)} cell(s) below 80% health - Schedule maintenance")
+    
+    # Cycle check
+    aged_cells = [cell for cell in st.session_state.cells_data.values() if cell['cycles'] > 500]
+    if aged_cells:
+        recommendations.append(f"🔄 {len(aged_cells)} cell(s) with high cycle count - Monitor closely")
+    
+    if not recommendations:
+        recommendations.append("✅ All systems operating within normal parameters")
+    
+    for rec in recommendations:
+        st.info(rec)
+
+# ============================================================================
+# SETTINGS PAGE
+# ============================================================================
+
+def render_settings():
+    """Render settings page"""
+    st.markdown("## ⚙️ System Settings")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🎛️ General Settings")
+        
+        auto_refresh = st.toggle("Auto-refresh monitoring", value=st.session_state.monitoring_active)
+        if auto_refresh != st.session_state.monitoring_active:
+            st.session_state.monitoring_active = auto_refresh
+        
+        refresh_interval = st.slider("Refresh interval (seconds)", 1, 30, 5)
+        
+        st.markdown("### 🚨 Alert Thresholds")
+        temp_threshold = st.slider("Temperature alert (°C)", 30, 50, 35)
+        health_threshold = st.slider("Health alert (%)", 50, 90, 80)
+        voltage_tolerance = st.slider("Voltage tolerance (%)", 1, 20, 10)
+        
+    with col2:
+        st.markdown("### 📊 Data Management")
+        
+        if st.button("📥 Export Data", use_container_width=True):
+            if st.session_state.cells_data:
+                export_data = {
+                    'cells': st.session_state.cells_data,
+                    'tasks': st.session_state.tasks_data,
+                    'exported_at': datetime.now().isoformat()
+                }
+                st.download_button(
+                    "💾 Download JSON",
+                    data=json.dumps(export_data, indent=2),
+                    file_name=f"bms_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json"
+                )
+            else:
+                st.warning("No data to export")
+        
+        if st.button("🗑️ Clear All Data", use_container_width=True):
+            if st.button("⚠️ Confirm Clear All", use_container_width=True):
+                st.session_state.cells_data = {}
+                st.session_state.tasks_data = {}
+                st.session_state.history_data = []
+                st.success("All data cleared!")
+                st.rerun()
+        
+        st.markdown("### ℹ️ System Information")
+        st.info(f"""
+        **Version:** 2.0.0  
+        **Last Update:** {datetime.now().strftime('%Y-%m-%d %H:%M')}  
+        **Active Cells:** {len(st.session_state.cells_data)}  
+        **Active Tasks:** {len(st.session_state.tasks_data)}
+        """)
+
+# ============================================================================
+# MAIN APPLICATION
+# ============================================================================
+
+def main():
+    """Main application logic"""
+    render_header()
+    render_sidebar()
+    
+    # Route to appropriate page
+    current_page = st.session_state.get('current_page', '📊 Dashboard')
+    
+    if current_page == '📊 Dashboard':
+        render_dashboard()
+    elif current_page == '🔋 Cell Management':
+        render_cell_management()
+    elif current_page == '📋 Task Control':
+        render_task_control()
+    elif current_page == '📈 Analytics':
+        render_analytics()
+    elif current_page == '⚙️ Settings':
+        render_settings()
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align: center; padding: 2rem; color: #666; font-size: 0.9rem;'>
+        ⚡ Professional Battery Management System | Built with Streamlit & Python<br>
+        <strong>Portfolio Project</strong> • Ready for GitHub & LinkedIn
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Auto-refresh logic
+    if st.session_state.monitoring_active and current_page == '📊 Dashboard':
+        time.sleep(2)
+        st.rerun()
+
+if __name__ == "__main__":
+    main()🔋 {cell_key.upper()}</h3>
                         <span class="status-badge {status_class}">{cell_data['status']}</span>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
