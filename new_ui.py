@@ -903,7 +903,7 @@ def main():
         st.rerun()
 
 if __name__ == "__main__":
-    main()🔋 {cell_key.upper()}</h3>
+    main() {cell_key.upper()}</h3>
                         <span class="status-badge {status_class}">{cell_data['status']}</span>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
